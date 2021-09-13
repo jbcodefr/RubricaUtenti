@@ -24,6 +24,39 @@ def home():
     userlist=User.query.all()
     return render_template("home.html",userlist=userlist)
 
+
+@app.route('/update/<int:id>',methods=['GET','POST'])
+def update(id):
+    uto = User.query.get_or_404(id)
+    if request.method=='POST':
+        
+        
+        email=request.form.get('email')
+        username=request.form.get('username')
+        password1=request.form.get('password1')
+        password2=request.form.get('password2')
+        
+        if uto.email==request.form.get('email'):
+            flash('Email already Used ',category='error') 
+        elif len(email)<3:
+            flash('_> Email > 4 charac',category='error')
+        elif len(username)<2:
+            flash('_> Username > 4 charac',category='error')
+        elif password1!=password2:
+            flash('_> password1!=password2',category='error') 
+        elif len(password1)<2:
+            flash('_> password > 5 charac',category='error')
+        else:
+            uto.email=request.form.get('email')
+            uto.username=request.form.get('username')
+            uto.password=generate_password_hash(request.form.get('password1'),method='sha256')
+            db.session.commit()
+            flash('User: "'+uto.username+'" Updated',category='success')
+            ##login_user(user,remember=True)
+            ## userResult=db.session.query(User)
+            return redirect(url_for("home"))
+    return render_template("update.html",user=uto)
+
 @app.route('/signup',methods=['GET','POST'])
 def sign_up(): 
     if request.method=='POST':
