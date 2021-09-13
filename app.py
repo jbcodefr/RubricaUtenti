@@ -24,13 +24,10 @@ def home():
     userlist=User.query.all()
     return render_template("home.html",userlist=userlist)
 
-
 @app.route('/update/<int:id>',methods=['GET','POST'])
 def update(id):
     uto = User.query.get_or_404(id)
     if request.method=='POST':
-        
-        
         email=request.form.get('email')
         username=request.form.get('username')
         password1=request.form.get('password1')
@@ -56,6 +53,17 @@ def update(id):
             ## userResult=db.session.query(User)
             return redirect(url_for("home"))
     return render_template("update.html",user=uto)
+
+@app.route('/delete/<int:id>',methods=['GET','POST'])
+def delete_user(id):
+        utd = User.query.get_or_404(id)
+        username = utd.username
+        if utd:
+            db.session.delete(utd)
+            db.session.commit()
+            flash('User: "'+username+'" deleted',category='warning')
+            return redirect(url_for("home")) 
+
 
 @app.route('/signup',methods=['GET','POST'])
 def sign_up(): 
