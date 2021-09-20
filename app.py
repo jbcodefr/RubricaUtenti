@@ -1,98 +1,66 @@
-from flask import Flask,render_template,request, flash, redirect, url_for
-from werkzeug.security import generate_password_hash,check_password_hash
+from flask import Flask
+from flask_restful import reqparse,abort,Api,Resource
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'hjshjhdjah kjshkjdhjs'
-app.config['SQLALCHEMY_DATABASE_URI']='postgresql://postgres:postgres@localhost/users'
-db=SQLAlchemy(app)
 
+app=Flask(__name__)
+api=Api(app)
+app.config['SECRET_KEY'] = 'hjshjhdjah kjshkjdhjs'
+app.config['SQLALCHEMY_DATABASE_URI']='postgresql://postgres:postgres@localhost/utenti'
+
+db=SQLAlchemy(app)
+migrate=Migrate(app,db)
 
 class User(db.Model):
-    __tablename__='utenti'
+    __tablename__='users'
     id=db.Column(db.Integer,primary_key=True)
     email=db.Column(db.String(150),unique=True)
     username=db.Column(db.String(150))
-    password=db.Column(db.String(150))
 
-def __init__(self,email,username,password):
+def __init__(self,email,username):
     self.email=email
     self.username=username
-    self.password=password
+    
+USERS={
+    '1':{'email':'foo@bar.com','username':'jean'},
+    '2':{'email':'jb@bj.com','username':'jhon'}
+}
 
-@app.route('/')
-def home():
-    userlist=User.query.all()
-    return render_template("home.html",userlist=userlist)
-
-@app.route('/update/<int:id>',methods=['GET','POST'])
-def update(id):
-    uto = User.query.get_or_404(id)
-    if request.method=='POST':
-        email=request.form.get('email')
-        username=request.form.get('username')
-        password1=request.form.get('password1')
-        password2=request.form.get('password2')
-        
-        if uto.email==request.form.get('email'):
-            flash('Email already Used ',category='error') 
-        elif len(email)<3:
-            flash('_> Email > 4 charac',category='error')
-        elif len(username)<2:
-            flash('_> Username > 4 charac',category='error')
-        elif password1!=password2:
-            flash('_> password1!=password2',category='error') 
-        elif len(password1)<2:
-            flash('_> password > 5 charac',category='error')
-        else:
-            uto.email=request.form.get('email')
-            uto.username=request.form.get('username')
-            uto.password=generate_password_hash(request.form.get('password1'),method='sha256')
-            db.session.commit()
-            flash('User: "'+uto.username+'" Updated',category='success')
-            ##login_user(user,remember=True)
-            ## userResult=db.session.query(User)
-            return redirect(url_for("home"))
-    return render_template("update.html",user=uto)
-
-@app.route('/delete/<int:id>',methods=['GET','POST'])
-def delete_user(id):
-        utd = User.query.get_or_404(id)
-        username = utd.username
-        if utd:
-            db.session.delete(utd)
-            db.session.commit()
-            flash('User: "'+username+'" deleted',category='warning')
-            return redirect(url_for("home")) 
+def abort_if_not_id(userid):
+    if userid not in USERS:
+        abort('404' ,message="User {} not found".format(userid))
+parser=reqparse.RequestParser()
+parser.add_argument('userid',type=int,help='User ID')               
+parser.add_argument('username',required=True)        
+parser.add_argument('email',required=True)        
 
 
-@app.route('/signup',methods=['GET','POST'])
-def sign_up(): 
-    if request.method=='POST':
-        email=request.form.get('email')
-        username=request.form.get('username')
-        password1=request.form.get('password1')
-        password2=request.form.get('password2')
-
-        user=User.query.filter_by(email=email).first()
-        if user:
-            flash('Email already Used ',category='error') 
-        elif len(email)<3:
-            flash('_> Email > 4 charac',category='error')
-        elif len(username)<2:
-            flash('_> Username > 4 charac',category='error')
-        elif password1!=password2:
-            flash('_> password1!=password2',category='error') 
-        elif len(password1)<2:
-            flash('_> password > 5 charac',category='error')
-        else:
-            new_user=User(email=email,username=username,password=generate_password_hash(password1,method='sha256'))
-            db.session.add(new_user)
-            db.session.commit()
-            flash('User: "'+username+'" Created',category='success')
-            ##login_user(user,remember=True)
-            ## userResult=db.session.query(User)
-            return redirect(url_for("home"))
-    return render_template("signup.html") 
-
+class User(Resource):
+    def get(self,userid):
+        abort_if_not_id(userid)
+        return USERS[userid]
+    
+    def delete(self,userid):
+        abort_if_not_id(userid)
+        del USERS[userid]
+        return '',204
+    
+    def put(self,userid):
+        args=parser.parse_args()
+        USERS[userid]={'username':args['username'],"email":args['email']}
+        return USERS[userid],201
+    
+class userlist(Resource):
+    def get(self):
+        return USERS
+    def post(self):
+        args=parser.parse_args()
+        userid=int(max(USERS.keys()).lstrip('userid'))+1
+        userid='userid%i'% userid
+        USERS[userid]={'username':args['username'],'email':args['email']}
+        return USERS[userid],201
+    
+api.add_resource(User,'/user/<userid>')            
+api.add_resource(userlist,'/users')
 if __name__ == '__main__':
     app.run(debug=True)
